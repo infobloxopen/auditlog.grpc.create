@@ -1,0 +1,155 @@
+syntax = "proto3";
+
+package service;
+
+import "google/api/annotations.proto";
+import "github.com/envoyproxy/protoc-gen-validate/validate/validate.proto";
+import "protoc-gen-swagger/options/annotations.proto";
+import "github.com/infobloxopen/atlas-app-toolkit/query/collection_operators.proto";
+import "google/protobuf/timestamp.proto";
+import "github.com/infobloxopen/protoc-gen-gorm/types/types.proto";
+import "github.com/infobloxopen/protoc-gen-gorm/options/gorm.proto";
+import "github.com/infobloxopen/protoc-gen-atlas-query-validate/options/query_validate.proto";
+
+option go_package = "github.com/Infoblox-CTO/ngp.app.audit.logging/pkg/pb;pb";
+
+enum SubjectType {
+  Default = 0;
+  User = 1;
+  Service = 2;
+  Device = 3;
+}
+
+message AuditLog {
+  option (gorm.opts) = {
+     ormable: true,
+     table: "audit_logs"
+  };
+  uint64 id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  string action = 3 [(validate.rules).string.min_len = 1];
+  string result = 4 [(validate.rules).string.min_len = 1];
+  string app_id = 5 [(validate.rules).string.min_len = 1];
+  string resource_id = 6 ;
+  string resource_type = 7 [(validate.rules).string.min_len = 1];
+  string user_name = 8 [(validate.rules).string.min_len = 1];
+  string client_ip = 9;
+  string resource_desc = 10;
+  string message = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  string request_id = 13;
+  string event_version = 14;
+  gorm.types.JSONValue event_metadata = 15;
+  SubjectType subject_type = 16;
+  string session_type = 17;
+  repeated string subject_groups = 18;
+  string session_id = 19;
+  string http_url = 20;
+  string http_method = 21;
+  string http_req_body = 22;
+  int32 http_code = 23;
+  string http_resp_body = 24;
+  string account_id = 25;
+}
+
+message AuditLogRes {
+  option (gorm.opts) = {
+     ormable: true,
+     multi_account: true,
+     table: "audit_logs"
+  };
+  uint64 id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  string action = 3;
+  string result = 4;
+  string app_id = 5;
+  string resource_id = 6;
+  string resource_type = 7;
+  string user_name = 8;
+  string client_ip = 9;
+  string resource_desc = 10;
+  string message = 11;
+  string request_id = 12;
+  string event_version = 13;
+  gorm.types.JSONValue event_metadata = 14 [(atlas.query.validate).filtering.deny = ALL];
+  SubjectType subject_type = 15;
+  string session_type = 16;
+  repeated string subject_groups = 17 [(atlas.query.validate).filtering.deny = ALL];
+  string session_id = 18;
+  string http_url = 19;
+  string http_method = 20;
+  string http_req_body = 21 [(atlas.query.validate).filtering.deny = ALL];
+  int32 http_code = 22;
+  string http_resp_body = 23 [(atlas.query.validate).filtering.deny = ALL];
+}
+
+message GetRequest {
+  infoblox.api.Filtering filter = 1;
+  infoblox.api.Sorting order_by = 2;
+  infoblox.api.FieldSelection fields = 3;
+  infoblox.api.Pagination paging = 4;
+}
+
+message DownloadRequest {
+  infoblox.api.Filtering filter = 1;
+  infoblox.api.Sorting order_by = 2;
+  infoblox.api.FieldSelection fields = 3;
+}
+
+message CreateRequest {
+  AuditLog payload = 1;
+}
+
+message ListResponse {
+  repeated AuditLogRes results = 1;
+  infoblox.api.PageInfo page = 2;
+}
+
+message CreateResponse {
+    AuditLog result = 1;
+}
+
+service AuditLogging {
+  option (gorm.server).autogen = true;
+  rpc CreateAuditLog (CreateRequest) returns (CreateResponse) {
+  }
+
+  /* List Audit logs.
+
+  Use this method to retrieve list of Audit logging objects.
+  */
+  rpc ListAuditLogs (GetRequest) returns (ListResponse) {
+    option (google.api.http) = {
+      get: "/logs"};
+  }
+  rpc FetchLogs (DownloadRequest) returns (stream AuditLog) {
+  };
+}
+
+option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+  info: {
+    title: "audit.logging";
+    version: "1.0";
+  };
+  schemes: HTTP;
+  schemes: HTTPS;
+  consumes: "application/json";
+  produces: "application/json";
+  base_path: "/api/auditlog/v1/";
+  security_definitions: {
+    security: {
+      key: "ApiKeyAuth";
+      value: {
+        type: TYPE_API_KEY;
+        in: IN_HEADER;
+        name: "Authorization";
+      };
+    };
+  };
+  security: {
+    security_requirement: {
+      key: "ApiKeyAuth";
+      value: {};
+    }
+  };
+};
